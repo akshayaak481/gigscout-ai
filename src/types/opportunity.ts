@@ -82,7 +82,7 @@ export interface DiscoveredOpportunity {
 }
 
 export interface DiscoveryStageLog {
-  step: 'profile' | 'queries' | 'tavily' | 'extraction' | 'done';
+  step: 'profile' | 'queries' | 'tavily' | 'extraction' | 'risk' | 'done';
   title: string;
   detail: string;
   timestamp: string;

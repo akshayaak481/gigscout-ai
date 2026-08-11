@@ -8,9 +8,24 @@ export interface PortfolioItem {
   metricsOrOutcome?: string; // e.g. "Increased conversion by 34%"
 }
 
+export type SkillCategory = 
+  | 'frontend' 
+  | 'backend' 
+  | 'ai_ml' 
+  | 'ai' 
+  | 'data' 
+  | 'database' 
+  | 'cloud' 
+  | 'design' 
+  | 'devops' 
+  | 'writing' 
+  | 'video' 
+  | 'marketing' 
+  | 'other';
+
 export interface SkillProficiency {
   name: string;
-  category: 'frontend' | 'backend' | 'ai_ml' | 'design' | 'devops' | 'writing' | 'other';
+  category: SkillCategory;
   yearsExperience: number;
   level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
 }

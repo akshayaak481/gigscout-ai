@@ -60,9 +60,9 @@ export function OpportunityList({
       const fallbackProfile: FreelancerProfile = activeProfile || {
         id: 'prof-active',
         name: 'Freelancer',
-        title: 'AI & Cloud Professional',
+        title: 'Freelance Professional',
         bio: '',
-        targetRole: 'Freelance Specialist',
+        targetRole: 'Freelance Professional',
         hourlyRateMin: 50,
         hourlyRateMax: 90,
         currency: 'USD',
@@ -109,28 +109,34 @@ export function OpportunityList({
     }
   };
 
-  const filteredOpportunities = opportunities.filter((opp) => {
-    // Platform match
-    if (platformFilter !== 'all' && opp.platform !== platformFilter) return false;
-    
-    // Risk level filter
-    if (riskFilter !== 'all' && opp.riskAssessment.level !== riskFilter) return false;
+  const filteredOpportunities = opportunities
+    .filter((opp) => {
+      // Platform match
+      if (platformFilter !== 'all' && opp.platform !== platformFilter) return false;
+      
+      // Risk level filter
+      if (riskFilter !== 'all' && opp.riskAssessment.level !== riskFilter) return false;
 
-    // Minimum match score filter
-    if (opp.matchReasoning && opp.matchReasoning.overallScore < minMatch) return false;
+      // Minimum match score filter
+      if (opp.matchReasoning && opp.matchReasoning.overallScore < minMatch) return false;
 
-    // Text search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const inTitle = opp.title.toLowerCase().includes(q);
-      const inDesc = opp.description.toLowerCase().includes(q);
-      const inSkills = opp.skillsRequired.some(s => s.toLowerCase().includes(q));
-      const inClient = opp.clientName.toLowerCase().includes(q);
-      if (!inTitle && !inDesc && !inSkills && !inClient) return false;
-    }
+      // Text search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const inTitle = opp.title.toLowerCase().includes(q);
+        const inDesc = opp.description.toLowerCase().includes(q);
+        const inSkills = opp.skillsRequired.some(s => s.toLowerCase().includes(q));
+        const inClient = opp.clientName.toLowerCase().includes(q);
+        if (!inTitle && !inDesc && !inSkills && !inClient) return false;
+      }
 
-    return true;
-  });
+      return true;
+    })
+    .sort((a, b) => {
+      const scoreA = a.matchReasoning?.overallScore ?? (100 - (a.riskAssessment?.score || 0));
+      const scoreB = b.matchReasoning?.overallScore ?? (100 - (b.riskAssessment?.score || 0));
+      return scoreB - scoreA;
+    });
 
   return (
     <section className="space-y-6">

@@ -104,7 +104,9 @@ export function PitchGeneratorModal({
   const [copied, setCopied] = useState<boolean>(false);
   const [pitchText, setPitchText] = useState<string>('');
 
-  // 1. Determine if valid freelancer profile exists in Supabase
+  // 1. Candidate metadata strictly from active profile
+  const candidateName = (profile?.name || '').trim() || 'Freelance Professional';
+  const candidateRole = (profile?.targetRole || profile?.title || '').trim() || 'Freelance Consultant';
   const candidateSkills = extractProfileSkills(profile);
   const hasProfileData = Boolean(
     profile && (profile.name?.trim() || profile.targetRole?.trim() || candidateSkills.length > 0)
@@ -122,16 +124,13 @@ export function PitchGeneratorModal({
     ? verifiedMatchedSkills.slice(0, 4).join(', ')
     : candidateSkills.length > 0
       ? candidateSkills.slice(0, 3).join(', ')
-      : (profile?.targetRole || '');
+      : candidateRole;
 
   // 2. Extract natural accomplishment evidence
   const naturalAccomplishments = opportunity 
     ? extractNaturalAccomplishments(ragChunks, profile, opportunity)
     : [];
 
-  // 3. Candidate metadata strictly from Supabase profile
-  const candidateName = profile?.name?.trim() || 'Freelance Specialist';
-  const candidateRole = profile?.targetRole?.trim() || 'AI & Data Engineering Freelancer';
   const currency = profile?.currency || 'USD';
   const minRate = profile?.hourlyRateMin || 0;
   const maxRate = profile?.hourlyRateMax || 0;
@@ -147,16 +146,16 @@ export function PitchGeneratorModal({
   const hasTimeline = Boolean(opportunity?.estimatedDuration && opportunity.estimatedDuration.trim());
   const timelineText = opportunity?.estimatedDuration?.trim() || '';
 
-  // Build the personalized, natural proposal
-  const generateProposal = (selectedTone: typeof tone): string => {
+  // Build the personalized, natural proposal deterministically
+  const buildLocalProposal = (selectedTone: typeof tone): string => {
     if (!opportunity) return '';
 
     if (!hasProfileData) {
-      return `[Error: No saved freelancer profile found in Supabase]\n\nPlease navigate to "My Profile" and save your real name, target role, and technical skills before generating proposals. Demo and fallback data are disabled.`;
+      return `[Error: No saved freelancer profile found]\n\nPlease navigate to "My Profile" and save your profile before generating proposals.`;
     }
 
     const techFitPhrase = skillClaim ? `in ${skillClaim}` : 'in this domain';
-    const clientGreeting = opportunity.clientName?.trim() || 'there';
+    const clientGreeting = opportunity.clientName?.trim() || 'Hiring Team';
 
     // Evidence block formatted naturally
     const evidenceLines = naturalAccomplishments.length > 0
@@ -181,7 +180,7 @@ export function PitchGeneratorModal({
     if (selectedTone === 'concise') {
       return `Hi ${clientGreeting},
 
-I saw your posting for "${opportunity.title}" and wanted to connect as my technical focus ${techFitPhrase} directly matches your requirements.
+I saw your posting for "${opportunity.title}" and wanted to connect as my background ${techFitPhrase} directly matches your requirements.
 
 Relevant Experience:
 ${evidenceLines}
@@ -189,7 +188,7 @@ ${evidenceLines}
 Engagement Details:
 ${termsBlock}
 
-Are you available for a brief 10-minute kickoff discussion this week to discuss next steps?
+Are you available for a brief kickoff call this week to discuss next steps?
 
 Best regards,
 ${candidateName}
@@ -197,7 +196,7 @@ ${candidateRole}`;
     }
 
     if (selectedTone === 'professional') {
-      return `Dear ${opportunity.clientName ? opportunity.clientName : 'Hiring Team'},
+      return `Dear ${clientGreeting},
 
 I am writing to submit my proposal for your project: "${opportunity.title}".
 
@@ -235,7 +234,7 @@ ${candidateRole}`;
     }
 
     // Default: Consultative
-    return `Hello ${opportunity.clientName ? opportunity.clientName : 'Hiring Team'},
+    return `Hello ${clientGreeting},
 
 I am writing regarding your listing for "${opportunity.title}". Having reviewed your project description, your core requirements ${techFitPhrase} align directly with my background.
 
@@ -254,12 +253,45 @@ ${candidateName}
 ${candidateRole}`;
   };
 
-  // Generate on open or tone change
+  // Fetch AI proposal from dedicated backend endpoint with local fallback
+  const fetchAiProposal = async (selectedTone: typeof tone) => {
+    if (!opportunity || !profile?.id) return;
+    setIsGenerating(true);
+
+    try {
+      const res = await fetch('/api/opportunities/proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: profile.id,
+          opportunity,
+          tone: selectedTone,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && json.proposal) {
+        setPitchText(json.proposal);
+      } else {
+        setPitchText(buildLocalProposal(selectedTone));
+      }
+    } catch (err) {
+      console.warn('API proposal fetch notice, using candidate local proposal:', err);
+      setPitchText(buildLocalProposal(selectedTone));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Generate on open or tone/profile change
   useEffect(() => {
     if (isOpen && opportunity) {
-      setPitchText(generateProposal(tone));
+      // First populate immediate candidate-aligned proposal
+      setPitchText(buildLocalProposal(tone));
+      // Then fetch server-grounded proposal
+      fetchAiProposal(tone);
     }
-  }, [isOpen, opportunity, tone, profile, ragChunks]);
+  }, [isOpen, opportunity?.id, tone, profile.id, profile.name, profile.targetRole]);
 
   if (!isOpen || !opportunity) return null;
 
@@ -277,11 +309,7 @@ ${candidateRole}`;
   };
 
   const handleRegenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setPitchText(generateProposal(tone));
-      setIsGenerating(false);
-    }, 200);
+    fetchAiProposal(tone);
   };
 
   return (
@@ -367,7 +395,7 @@ ${candidateRole}`;
                     onClick={() => {
                       const nextTone = item.id as typeof tone;
                       setTone(nextTone);
-                      setPitchText(generateProposal(nextTone));
+                      fetchAiProposal(nextTone);
                     }}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
                       tone === item.id

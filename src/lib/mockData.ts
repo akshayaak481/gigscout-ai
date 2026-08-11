@@ -2,6 +2,7 @@ import { Opportunity } from '@/types/opportunity';
 import { FreelancerProfile } from '@/types/profile';
 import { AgentNodeMetadata, AgentLogEntry } from '@/types/agent';
 import { RAGChunk, MatchScoreBreakdown, StepLogItem, WorkflowNode } from '@/types/dashboard';
+import { evaluateOpportunityRisk } from '@/lib/services/riskService';
 
 export const DEMO_PROFILES: FreelancerProfile[] = [
   {
@@ -252,50 +253,62 @@ export const INITIAL_OPPORTUNITIES: Opportunity[] = [
   },
   {
     id: 'opp-2',
-    title: 'Enterprise RAG Search Engine with Supabase & Next.js',
-    clientName: 'OmniData Health Tech',
-    clientCountry: 'Canada',
-    clientRating: 4.88,
-    clientSpent: '$65k+ spend',
-    platform: 'weworkremotely',
-    platformUrl: 'https://weworkremotely.com/jobs/enterprise-rag-search',
-    description: 'Looking for a developer to implement an enterprise RAG knowledge engine. Needs to parse PDFs, chunk and store embeddings in Supabase pgvector, and expose an intuitive search UI built with Next.js App Router and Tailwind CSS. Clean code and automated evaluations are a plus.',
+    title: 'URGENT: Rush AI Model Fine-Tuning & Pipeline Script — Free Sample Benchmark Required',
+    clientName: 'RapidAI Ventures LLC',
+    clientCountry: 'Remote / Unverified',
+    clientRating: 3.7,
+    clientSpent: '$0.00 spent',
+    platform: 'freelancer',
+    platformUrl: 'https://freelancer.com/projects/rush-ai-fine-tuning-free-benchmark',
+    description: 'URGENT: We need an AI Engineer to fine-tune a model and optimize our inference script within 24 hours. NOTE: All applicants must complete an unpaid trial test task demonstrating accuracy on our proprietary benchmark dataset before the milestone contract is created. Payment released only upon final review.',
     budgetType: 'fixed',
-    budgetMin: 3500,
-    budgetMax: 5000,
+    budgetMin: 800,
+    budgetMax: 1200,
     budgetCurrency: 'USD',
-    skillsRequired: ['Supabase', 'pgvector', 'Next.js', 'TypeScript', 'OpenAI Embeddings', 'RAG'],
+    skillsRequired: ['Python', 'Generative AI', 'Fine-Tuning', 'PyTorch'],
     experienceLevel: 'Intermediate',
     postedAt: '2026-08-10T11:15:00Z',
-    estimatedDuration: '3 weeks',
+    estimatedDuration: '24 hours',
     status: 'active',
     riskAssessment: {
-      score: 12,
-      level: 'VERIFIED_SAFE',
-      summary: 'Reputable healthcare tech company with verified corporate domain, transparent milestone funding, and realistic scope.',
-      redFlags: [],
-      safetySignals: [
-        'Established Canadian corporate entity with verified LinkedIn and web domain.',
-        'Fair fixed budget ($3,500 - $5,000) for a 3-week defined deliverables scope.',
-        'No off-platform communication demands.',
+      score: 58,
+      level: 'MODERATE_RISK',
+      summary: 'CAUTION ADVISED: Risk Sentinel flagged speculative unpaid test task demands, sub-par client rating (3.7), zero platform expenditure, and rush pressure tactics.',
+      redFlags: [
+        {
+          id: 'rf-ai-trial',
+          category: 'scope',
+          severity: 'medium',
+          title: 'Unpaid Speculative Work Demand',
+          description: 'Client requires free proprietary benchmark trial work before funding contract escrow.',
+          evidence: 'All applicants must complete an unpaid trial test task demonstrating accuracy.',
+        },
+        {
+          id: 'rf-ai-rep',
+          category: 'reputation',
+          severity: 'medium',
+          title: 'Substandard Client Rating History',
+          description: 'Client rating is 3.7 stars with $0 platform spend history.',
+          evidence: 'Platform rating: 3.7 stars.',
+        },
       ],
-      safeToApply: true,
+      safetySignals: ['Standard platform listing'],
+      safeToApply: false,
       analyzedAt: '2026-08-10T11:20:00Z',
     },
     matchReasoning: {
-      overallScore: 92,
-      skillsMatchScore: 95,
-      rateAlignmentScore: 90,
-      experienceMatchScore: 92,
+      overallScore: 62,
+      skillsMatchScore: 90,
+      rateAlignmentScore: 75,
+      experienceMatchScore: 88,
       whyGoodMatch: [
-        'Your "DocuMind" portfolio project is a near identical match for this Supabase pgvector RAG requirement.',
-        'Deliverable is well suited for fixed-price execution.',
+        'Technical stack overlap with Python and GenAI.',
       ],
       potentialGaps: [
-        'Healthcare compliance (HIPAA / PIPEDA awareness) may be asked during interview.',
+        'CAUTION: Risk Sentinel flagged moderate risks (unpaid trial and unverified payment).',
       ],
-      recommendedPitchAngle: 'Present DocuMind benchmark results (sub-120ms retrieval across 50k pages) directly in the proposal hook.',
-      relevantPortfolioIds: ['port-ai-2'],
+      recommendedPitchAngle: 'Insist on platform escrow funding before delivering benchmark work.',
+      relevantPortfolioIds: [],
     },
   },
   {
@@ -349,13 +362,269 @@ export const INITIAL_OPPORTUNITIES: Opportunity[] = [
       experienceMatchScore: 20,
       whyGoodMatch: [],
       potentialGaps: [
-        'This listing is a confirmed fraudulent scam targeting students and freelancers.',
+        'CRITICAL SECURITY HAZARD: Risk Sentinel flagged severe scam indicators for this listing.',
       ],
-      recommendedPitchAngle: 'DO NOT APPLY. Risk Sentinel flagged this post.',
+      recommendedPitchAngle: 'DO NOT APPLY. Risk Sentinel flagged this post as hazardous.',
       relevantPortfolioIds: [],
     },
   },
 ];
+
+export function getInitialOpportunitiesForProfile(profile: FreelancerProfile): Opportunity[] {
+  const role = (profile.targetRole || profile.title || 'Freelance Consultant').trim();
+  const roleLower = role.toLowerCase();
+  const rawSkills = (profile.skills || []).map(s => (typeof s === 'string' ? s : s.name)).filter(Boolean);
+  const skillsList = rawSkills.length > 0 ? rawSkills : [role];
+  const rateMin = profile.hourlyRateMin || 50;
+  const rateMax = profile.hourlyRateMax || 90;
+  const currency = profile.currency || 'USD';
+  const locationPref = profile.locationPreference || 'Remote';
+  const duration = profile.projectDuration || '1 - 2 weeks';
+
+  // If profile is explicitly Akshaya (AI & Data Engineering), return Akshaya's curated benchmark set
+  const isAiEngineer = roleLower.includes('ai & data') || (roleLower.includes('ai') && roleLower.includes('engineering'));
+  if (isAiEngineer && (profile.id.includes('akshaya') || (profile.name && profile.name.toLowerCase().includes('akshaya')))) {
+    // Screen each opportunity with Risk Sentinel and log
+    return INITIAL_OPPORTUNITIES.map((opp) => {
+      const dynamicRisk = evaluateOpportunityRisk(opp);
+      return {
+        ...opp,
+        riskAssessment: dynamicRisk,
+      };
+    });
+  }
+
+  // Dynamic candidate-aligned opportunities with a REALISTIC MIX of Safe, Warning, and Critical Scam
+  const primarySkill = skillsList[0] || role;
+  const secondarySkill = skillsList[1] || 'Analytics & Architecture';
+  const tertiarySkill = skillsList[2] || 'Milestone Delivery';
+
+  const rawList: Opportunity[] = [
+    // 1. Safe Opportunity: Verified Client, Escrow, Competitive Hourly
+    {
+      id: `opp-${profile.id}-1`,
+      title: `${role} - High-Impact Client Engagement`,
+      clientName: 'Vanguard Enterprise Group',
+      clientCountry: `United States / ${locationPref}`,
+      clientRating: 4.98,
+      clientSpent: currency === 'INR' ? '₹850k+ total spend' : '$85k+ total spend',
+      platform: 'upwork',
+      platformUrl: `https://upwork.com/jobs/freelance-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      description: `Seeking an experienced ${role} for a high-priority assignment. You will lead key deliverables requiring ${skillsList.slice(0, 3).join(', ')}, ensure fast turnaround, and collaborate closely with our senior team.`,
+      budgetType: 'hourly',
+      budgetMin: rateMin,
+      budgetMax: rateMax,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 5),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+      estimatedDuration: duration,
+      status: 'active',
+      riskAssessment: {
+        score: 5,
+        level: 'VERIFIED_SAFE',
+        summary: `Verified client with 4.98 rating and verified escrow payment record for ${role} engagements.`,
+        redFlags: [],
+        safetySignals: [
+          `Clear hourly compensation terms (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr)`,
+          'Client has established payment verification on platform',
+          'Well-defined scope matching candidate skillset',
+          'Zero suspicious flags detected by Risk Sentinel',
+        ],
+        safeToApply: true,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 96,
+        skillsMatchScore: 98,
+        rateAlignmentScore: 95,
+        experienceMatchScore: 94,
+        whyGoodMatch: [
+          `Direct match: Your core skills (${skillsList.slice(0, 3).join(', ')}) precisely match project requirements.`,
+          `Client hourly budget (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr) aligns with your target rate.`,
+          `Project duration (${duration}) and ${locationPref} setup match your current availability.`,
+        ],
+        potentialGaps: [],
+        recommendedPitchAngle: `Highlight your hands-on expertise in ${skillsList.slice(0, 2).join(' and ')} and rapid milestone turnaround.`,
+        relevantPortfolioIds: [],
+      },
+    },
+
+    // 2. Safe Opportunity: Reputable Brand, Milestone Fixed Price
+    {
+      id: `opp-${profile.id}-2`,
+      title: `${primarySkill} Specialist - Strategic Campaign & Implementation`,
+      clientName: 'Horizon Media & Digital Partners',
+      clientCountry: `Canada / ${locationPref}`,
+      clientRating: 4.93,
+      clientSpent: currency === 'INR' ? '₹450k+ total spend' : '$48k+ total spend',
+      platform: 'weworkremotely',
+      platformUrl: `https://weworkremotely.com/jobs/${primarySkill.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-specialist`,
+      description: `Looking for a talented freelance ${role} to handle key deliverables for our upcoming launch. Must have solid experience with ${primarySkill}, ${secondarySkill}, and ${tertiarySkill}. Verified corporate escrow enabled.`,
+      budgetType: 'fixed',
+      budgetMin: rateMin * 30,
+      budgetMax: rateMax * 45,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 4),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+      estimatedDuration: duration,
+      status: 'active',
+      riskAssessment: {
+        score: 7,
+        level: 'VERIFIED_SAFE',
+        summary: 'Established employer on WeWorkRemotely with milestone-based escrow.',
+        redFlags: [],
+        safetySignals: ['Verified corporate platform presence', 'Transparent milestone deliverables', 'Prompt communication channel'],
+        safeToApply: true,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 92,
+        skillsMatchScore: 94,
+        rateAlignmentScore: 91,
+        experienceMatchScore: 90,
+        whyGoodMatch: [
+          `Strong overlap with ${primarySkill} and ${secondarySkill}.`,
+          'Milestone compensation structured around proven deliverables.',
+        ],
+        potentialGaps: [],
+        recommendedPitchAngle: `Showcase relevant case studies and past client work involving ${primarySkill}.`,
+        relevantPortfolioIds: [],
+      },
+    },
+
+    // 3. Warning Opportunity (MODERATE_RISK): Sub-par client rating, rush pressure, unbilled test task requirement
+    {
+      id: `opp-${profile.id}-3`,
+      title: `URGENT: Rush ${role} Deliverable — Free Unbilled Test Task Required`,
+      clientName: 'QuickTurn Digital Labs',
+      clientCountry: `Remote / Unverified`,
+      clientRating: 4.1,
+      clientSpent: '$2,500 total spend',
+      platform: 'freelancer',
+      platformUrl: `https://freelancer.com/projects/rush-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-free-test`,
+      description: `URGENT HIRING: Need a freelance ${role} for a 24-hour rush turnaround in ${primarySkill}. NOTE: All applicants must submit a free custom test sample deliverable before contract is created. Payment released upon final client review.`,
+      budgetType: 'hourly',
+      budgetMin: Math.max(20, rateMin - 10),
+      budgetMax: rateMax,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 3),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 7).toISOString(),
+      estimatedDuration: '24 hours',
+      status: 'active',
+      riskAssessment: {
+        score: 55,
+        level: 'MODERATE_RISK',
+        summary: 'CAUTION ADVISED: Risk Sentinel flagged speculative unpaid test task demands, sub-par client rating (3.8), zero platform expenditure, and rush pressure tactics.',
+        redFlags: [
+          {
+            id: 'rf-warn-trial',
+            category: 'scope',
+            severity: 'medium',
+            title: 'Unpaid Speculative Work Demand',
+            description: 'Client requires free test deliverable before funding contract escrow.',
+            evidence: 'All applicants must submit a free custom test sample deliverable.',
+          },
+          {
+            id: 'rf-warn-rep',
+            category: 'reputation',
+            severity: 'medium',
+            title: 'Substandard Client Rating History',
+            description: 'Client rating is 3.8 stars with zero platform spend history.',
+            evidence: 'Platform rating: 3.8 stars.',
+          },
+        ],
+        safetySignals: ['Standard platform listing'],
+        safeToApply: false,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 64,
+        skillsMatchScore: 92,
+        rateAlignmentScore: 85,
+        experienceMatchScore: 88,
+        whyGoodMatch: [
+          `Skill alignment with ${primarySkill}.`,
+        ],
+        potentialGaps: [
+          'CAUTION: Risk Sentinel flagged moderate risks (unpaid test and unverified client payment).',
+        ],
+        recommendedPitchAngle: 'Insist on platform milestone escrow funding before submitting custom work.',
+        relevantPortfolioIds: [],
+      },
+    },
+
+    // 4. Critical Scam Opportunity (CRITICAL_SCAM): Telegram off-platform lure, fake check advance fee, ID card/bank demand
+    {
+      id: `opp-${profile.id}-4`,
+      title: `URGENT: Re-type & Process 50 ${primarySkill} Files into Documents — $5,500 ($85/hr)`,
+      clientName: 'Apex Data & Publishing Services LLC',
+      clientCountry: 'Unknown / Hidden',
+      clientRating: 0,
+      clientSpent: '$0.00 spent',
+      platform: 'freelancer',
+      platformUrl: `https://freelancer.com/projects/retype-${primarySkill.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-files-urgent`,
+      description: `URGENT HIRING: We need a ${role} to re-type, clean, and format 50 ${primarySkill} scanned records into MS Word/Excel documents. Very easy work for students and beginners. We pay $5,500 upon completion. DO NOT APPLY ON FREELANCER PLATFORM — Contact our hiring manager directly on Telegram @Hiring_HR_Global or WhatsApp +1-202-555-0199 with your ID card and bank info to receive the equipment check.`,
+      budgetType: 'fixed',
+      budgetMin: 5500,
+      budgetMax: 5500,
+      budgetCurrency: 'USD',
+      skillsRequired: [primarySkill, 'Data Entry', 'Copy Typing'],
+      experienceLevel: 'Entry',
+      postedAt: new Date(Date.now() - 3600000 * 10).toISOString(),
+      status: 'active',
+      riskAssessment: {
+        score: 98,
+        level: 'CRITICAL_SCAM',
+        summary: 'CRITICAL THREAT: Risk Sentinel detected severe scam vectors (Off-Platform Redirection, Advance-Fee/Fake Check, Sensitive Data Collection). Do not engage.',
+        redFlags: [
+          {
+            id: 'rf-scam-comm',
+            category: 'communication',
+            severity: 'critical',
+            title: 'Off-Platform Redirection (Telegram/WhatsApp)',
+            description: 'Client explicitly commands freelancers to bypass platform messaging and contact a Telegram handle.',
+            evidence: 'Contact our hiring manager directly on Telegram @Hiring_HR_Global',
+          },
+          {
+            id: 'rf-scam-pay',
+            category: 'payment',
+            severity: 'critical',
+            title: 'Advance-Fee / Fake Check Payment Trap',
+            description: 'Job references sending upfront equipment checks or paying external fees.',
+            evidence: 'Contact on Telegram to receive the equipment check.',
+          },
+        ],
+        safetySignals: [],
+        safeToApply: false,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 12,
+        skillsMatchScore: 10,
+        rateAlignmentScore: 5,
+        experienceMatchScore: 20,
+        whyGoodMatch: [],
+        potentialGaps: [
+          'CRITICAL SECURITY HAZARD: Risk Sentinel flagged severe scam indicators for this listing.',
+        ],
+        recommendedPitchAngle: 'DO NOT APPLY. Risk Sentinel flagged this post as hazardous.',
+        relevantPortfolioIds: [],
+      },
+    },
+  ];
+
+  // Screen each opportunity with universal Risk Sentinel engine and log
+  return rawList.map((opp) => {
+    const dynamicRisk = evaluateOpportunityRisk(opp);
+    return {
+      ...opp,
+      riskAssessment: dynamicRisk,
+    };
+  });
+}
 
 export const INITIAL_AGENT_NODES: AgentNodeMetadata[] = [
   {
@@ -489,162 +758,3 @@ export const SAMPLE_TELEMETRY_LOGS: AgentLogEntry[] = [
     message: 'Pitch Agent: Generated personalized outreach proposal using candidate portfolio evidence.',
   },
 ];
-
-export function getInitialOpportunitiesForProfile(profile: FreelancerProfile): Opportunity[] {
-  const role = (profile.targetRole || profile.title || 'Freelance Specialist').trim();
-  const roleLower = role.toLowerCase();
-  const rawSkills = (profile.skills || []).map(s => (typeof s === 'string' ? s : s.name)).filter(Boolean);
-  const skillsList = rawSkills.length > 0 ? rawSkills : [role];
-  const rateMin = profile.hourlyRateMin || 50;
-  const rateMax = profile.hourlyRateMax || 90;
-  const currency = profile.currency || 'USD';
-  const locationPref = profile.locationPreference || 'Remote';
-  const duration = profile.projectDuration || '1 - 2 weeks';
-
-  // If profile is explicitly Akshaya or AI & Data Engineering, return Akshaya's curated benchmark set
-  const isAiEngineer = roleLower.includes('ai') || roleLower.includes('data engineering') || roleLower.includes('machine learning') || roleLower.includes('rag') || roleLower.includes('langgraph');
-  if (isAiEngineer && (profile.id.includes('akshaya') || (profile.name && profile.name.toLowerCase().includes('akshaya')))) {
-    return INITIAL_OPPORTUNITIES;
-  }
-
-  // Dynamic candidate-aligned opportunities for ANY freelancer profile (e.g. Riya Berry, Web Developer, Designer, etc.)
-  const primarySkill = skillsList[0] || role;
-  const secondarySkill = skillsList[1] || 'Project Delivery';
-  const tertiarySkill = skillsList[2] || 'Client Collaboration';
-
-  return [
-    {
-      id: `opp-${profile.id}-1`,
-      title: `${role} - High-Impact Client Engagement`,
-      clientName: 'Vanguard Creative Media',
-      clientCountry: `United States / ${locationPref}`,
-      clientRating: 4.98,
-      clientSpent: currency === 'INR' ? '₹850k+ total spend' : '$85k+ total spend',
-      platform: 'upwork',
-      platformUrl: `https://upwork.com/jobs/freelance-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      description: `Seeking an experienced ${role} for a high-priority project. You will work directly on deliverables requiring ${skillsList.slice(0, 3).join(', ')}, ensure fast turnaround, and collaborate closely with our production team.`,
-      budgetType: 'hourly',
-      budgetMin: rateMin,
-      budgetMax: rateMax,
-      budgetCurrency: currency,
-      skillsRequired: skillsList.slice(0, 5),
-      experienceLevel: 'Intermediate',
-      postedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-      estimatedDuration: duration,
-      status: 'active',
-      riskAssessment: {
-        score: 5,
-        level: 'VERIFIED_SAFE',
-        summary: `Verified client with 4.98 rating and verified escrow payment record for ${role} engagements.`,
-        redFlags: [],
-        safetySignals: [
-          `Clear hourly compensation terms (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr)`,
-          'Client has established payment verification on platform',
-          'Well-defined scope and deliverables matching candidate skillset',
-          'Zero suspicious flags detected by Risk Sentinel',
-        ],
-        safeToApply: true,
-        analyzedAt: new Date().toISOString(),
-      },
-      matchReasoning: {
-        overallScore: 96,
-        skillsMatchScore: 98,
-        rateAlignmentScore: 95,
-        experienceMatchScore: 94,
-        whyGoodMatch: [
-          `Direct match: Your core skills (${skillsList.slice(0, 3).join(', ')}) precisely match project requirements.`,
-          `Client hourly budget (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr) aligns with your target rate.`,
-          `Project duration (${duration}) and ${locationPref} setup match your current availability.`,
-        ],
-        potentialGaps: [],
-        recommendedPitchAngle: `Highlight your hands-on expertise in ${skillsList.slice(0, 2).join(' and ')} and quick milestone delivery.`,
-        relevantPortfolioIds: [],
-      },
-    },
-    {
-      id: `opp-${profile.id}-2`,
-      title: `${primarySkill} Specialist - Fast-Growing Brand Campaign`,
-      clientName: 'Horizon Media Partners',
-      clientCountry: `Canada / ${locationPref}`,
-      clientRating: 4.93,
-      clientSpent: currency === 'INR' ? '₹450k+ total spend' : '$48k+ total spend',
-      platform: 'weworkremotely',
-      platformUrl: `https://weworkremotely.com/jobs/${primarySkill.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-specialist`,
-      description: `Looking for a talented freelance ${role} to handle key deliverables for our upcoming multi-channel brand launch. Must have solid experience with ${primarySkill}, ${secondarySkill}, and ${tertiarySkill}.`,
-      budgetType: 'fixed',
-      budgetMin: rateMin * 30,
-      budgetMax: rateMax * 45,
-      budgetCurrency: currency,
-      skillsRequired: skillsList.slice(0, 4),
-      experienceLevel: 'Intermediate',
-      postedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-      estimatedDuration: duration,
-      status: 'active',
-      riskAssessment: {
-        score: 7,
-        level: 'VERIFIED_SAFE',
-        summary: 'Established employer on WeWorkRemotely with milestone-based escrow.',
-        redFlags: [],
-        safetySignals: ['Verified corporate platform presence', 'Transparent milestone deliverables', 'Prompt communication channel'],
-        safeToApply: true,
-        analyzedAt: new Date().toISOString(),
-      },
-      matchReasoning: {
-        overallScore: 92,
-        skillsMatchScore: 94,
-        rateAlignmentScore: 91,
-        experienceMatchScore: 90,
-        whyGoodMatch: [
-          `Strong overlap with ${primarySkill} and ${secondarySkill}.`,
-          'Milestone compensation structured around proven deliverables.',
-        ],
-        potentialGaps: [],
-        recommendedPitchAngle: `Showcase relevant case studies and past client work involving ${primarySkill}.`,
-        relevantPortfolioIds: [],
-      },
-    },
-    {
-      id: `opp-${profile.id}-3`,
-      title: `${role.split('/')[0].trim()} - High-Priority Deliverable Sprint`,
-      clientName: 'KiteFlow Studio',
-      clientCountry: `United Kingdom / ${locationPref}`,
-      clientRating: 4.89,
-      clientSpent: currency === 'INR' ? '₹600k+ total spend' : '$62k+ total spend',
-      platform: 'reddit',
-      platformUrl: `https://reddit.com/r/forhire/hiring-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      description: `Hiring a reliable freelance ${role} for a ${duration} sprint. Focus on ${skillsList.slice(0, 3).join(', ')} with verified upfront platform escrow.`,
-      budgetType: 'hourly',
-      budgetMin: Math.max(15, rateMin - 5),
-      budgetMax: rateMax,
-      budgetCurrency: currency,
-      skillsRequired: skillsList.slice(0, 4),
-      experienceLevel: 'Intermediate',
-      postedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-      estimatedDuration: duration,
-      status: 'active',
-      riskAssessment: {
-        score: 10,
-        level: 'LOW_RISK',
-        summary: 'Reddit r/forhire client with verified upfront milestone escrow.',
-        redFlags: [],
-        safetySignals: ['Verified escrow milestone agreement', 'Specific scope and timeline'],
-        safeToApply: true,
-        analyzedAt: new Date().toISOString(),
-      },
-      matchReasoning: {
-        overallScore: 89,
-        skillsMatchScore: 91,
-        rateAlignmentScore: 88,
-        experienceMatchScore: 89,
-        whyGoodMatch: [
-          `Direct alignment with ${skillsList.slice(0, 2).join(' & ')} specifications.`,
-          'Flexible timeline with verified upfront escrow protection.',
-        ],
-        potentialGaps: [],
-        recommendedPitchAngle: `Emphasize your proven delivery track record in ${role}.`,
-        relevantPortfolioIds: [],
-      },
-    },
-  ];
-}
-

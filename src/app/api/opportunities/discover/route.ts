@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseServer, isServerSupabaseConfigured } from '@/lib/supabaseServer';
+import { evaluateOpportunityRisk } from '@/lib/services/riskService';
 import { 
   DiscoveredOpportunity, 
   DiscoveryStageLog, 
@@ -379,6 +380,23 @@ JSON SCHEMA:
           postedDate: item.postedDate || 'Not specified',
           rawSnippet: rawSearchResults[idx]?.content || undefined,
         }));
+
+        // ---------------------------------------------------------------------------
+        // Step 5: Risk Sentinel Screening for Every Discovered Opportunity
+        // ---------------------------------------------------------------------------
+        if (discoveredOpportunities.length > 0) {
+          addLog('risk', 'Risk Sentinel Screening', `Audited ${discoveredOpportunities.length} opportunities for scam indicators, off-platform traps, and escrow risks.`);
+          
+          discoveredOpportunities.forEach((opp) => {
+            evaluateOpportunityRisk({
+              id: opp.id,
+              title: opp.title,
+              description: `${opp.description} ${opp.rawSnippet || ''}`,
+              clientName: opp.source,
+              platform: 'direct',
+            });
+          });
+        }
       } catch (extErr: any) {
         console.error('Error during OpenAI opportunity extraction:', extErr);
       }

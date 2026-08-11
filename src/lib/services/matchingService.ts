@@ -1,6 +1,7 @@
 import { Opportunity, MatchReasoning } from '@/types/opportunity';
 import { FreelancerProfile } from '@/types/profile';
 import { RAGChunk } from '@/types/dashboard';
+import { evaluateOpportunityRisk } from './riskService';
 
 // Canonical synonyms map for intelligent, robust skill matching
 const SKILL_SYNONYMS: Record<string, string[]> = {
@@ -179,10 +180,21 @@ export function calculateDynamicMatch(
   const experienceYears = profile.experienceYears || 2;
   const experienceMatchScore = experienceYears >= 4 ? 95 : experienceYears >= 2 ? 88 : 80;
 
-  // Weighted overall percentage
-  const overallScore = Math.round(
+  // Weighted overall percentage before risk adjustment
+  const baseScore = Math.round(
     skillsMatchScore * 0.5 + rateAlignmentScore * 0.3 + experienceMatchScore * 0.2
   );
+
+  // Apply Risk Agent penalty (Requirement 8)
+  const riskScore = opportunity.riskAssessment?.score ?? 0;
+  let overallScore = baseScore;
+  if (riskScore >= 70) {
+    // Severe scam/risk: heavily penalize down to <= 20%
+    overallScore = Math.min(20, Math.round(baseScore * 0.15));
+  } else if (riskScore >= 40) {
+    // Moderate risk/caution: penalize by ~30%
+    overallScore = Math.max(30, Math.round(baseScore * 0.7));
+  }
 
   // Filter actual RAG resume chunks from Supabase
   const searchCorpus = `${opportunity.title || ''} ${opportunity.description || ''} ${requiredSkills.join(' ')}`.toLowerCase();
@@ -200,31 +212,45 @@ export function calculateDynamicMatch(
 
   // Dynamic whyGoodMatch bullet points
   const whyGoodMatch: string[] = [];
-  if (matchedSkills.length > 0) {
-    whyGoodMatch.push(
-      `Directly matches ${matchedSkills.length} key required skill${matchedSkills.length > 1 ? 's' : ''}: ${matchedSkills.slice(0, 4).join(', ')}.`
-    );
+  if (riskScore >= 70) {
+    // For critical scams, omit positive match praise
   } else {
+    if (matchedSkills.length > 0) {
+      whyGoodMatch.push(
+        `Directly matches ${matchedSkills.length} key required skill${matchedSkills.length > 1 ? 's' : ''}: ${matchedSkills.slice(0, 4).join(', ')}.`
+      );
+    } else {
+      whyGoodMatch.push(
+        `Aligns with your primary target role (${profile.targetRole || profile.title || 'selected focus area'}).`
+      );
+    }
+
+    if (opportunity.budgetType === 'hourly' && budgetMax >= userRateMin) {
+      whyGoodMatch.push(
+        `Client hourly rate ($${budgetMin}-$${budgetMax}/hr) meets your target rate expectation (${profile.currency} ${userRateMin}+/hr).`
+      );
+    } else if (opportunity.budgetMin) {
+      whyGoodMatch.push(
+        `Project compensation of $${opportunity.budgetMin.toLocaleString()} fits your target engagement scope.`
+      );
+    }
+
     whyGoodMatch.push(
-      `Aligns with your primary target role (${profile.targetRole || profile.title || 'Freelance Specialist'}).`
+      `Your availability of ${profile.availabilityHoursPerWeek || 20} hrs/week perfectly suits this ${profile.locationPreference || 'Remote'} assignment.`
     );
   }
-
-  if (opportunity.budgetType === 'hourly' && budgetMax >= userRateMin) {
-    whyGoodMatch.push(
-      `Client hourly rate ($${budgetMin}-$${budgetMax}/hr) meets your target rate expectation (${profile.currency} ${userRateMin}+/hr).`
-    );
-  } else if (opportunity.budgetMin) {
-    whyGoodMatch.push(
-      `Project compensation of $${opportunity.budgetMin.toLocaleString()} fits your target engagement scope.`
-    );
-  }
-
-  whyGoodMatch.push(
-    `Your availability of ${profile.availabilityHoursPerWeek || 20} hrs/week perfectly suits this ${profile.locationPreference || 'Remote'} assignment.`
-  );
 
   const potentialGaps: string[] = [];
+  if (riskScore >= 70) {
+    potentialGaps.push(
+      'CRITICAL SECURITY HAZARD: Risk Sentinel flagged severe scam indicators for this listing.'
+    );
+  } else if (riskScore >= 40) {
+    potentialGaps.push(
+      'CAUTION: Risk Sentinel flagged moderate risks (e.g. unverified payment, speculative trial scope).'
+    );
+  }
+
   if (missingSkills.length > 0) {
     potentialGaps.push(
       `Opportunity mentions ${missingSkills.slice(0, 3).join(', ')} which are not explicitly highlighted in your primary profile tags.`
@@ -232,7 +258,9 @@ export function calculateDynamicMatch(
   }
 
   const pitchSkillHighlights = matchedSkills.length > 0 ? matchedSkills.slice(0, 2).join(' and ') : profile.targetRole;
-  const recommendedPitchAngle = `Highlight your proven hands-on track record in ${pitchSkillHighlights}, emphasize rapid delivery, and cite relevant portfolio achievements to win client confidence.`;
+  const recommendedPitchAngle = riskScore >= 70
+    ? 'DO NOT APPLY. Risk Sentinel flagged this post as hazardous.'
+    : `Highlight your proven hands-on track record in ${pitchSkillHighlights}, emphasize rapid delivery, and cite relevant portfolio achievements to win client confidence.`;
 
   return {
     overallScore,
@@ -266,7 +294,9 @@ export function parseRawJobToOpportunity(rawText: string, profile: FreelancerPro
     'Generative AI', 'GenAI', 'RAG', 'Agentic AI', 'LangGraph', 'LangChain', 'OpenAI', 'Anthropic',
     'Databricks', 'Snowflake', 'BigQuery', 'Spark', 'PySpark', 'SQL', 'PostgreSQL', 'Python',
     'TypeScript', 'JavaScript', 'React', 'Next.js', 'Tailwind CSS', 'FastAPI', 'Node.js',
-    'Azure', 'AWS', 'GCP', 'Docker', 'Kubernetes', 'dbt', 'Airflow', 'Machine Learning', 'NLP'
+    'Azure', 'AWS', 'GCP', 'Docker', 'Kubernetes', 'dbt', 'Airflow', 'Machine Learning', 'NLP',
+    'Power BI', 'Tableau', 'Excel', 'Data Analysis', 'Video Editing', 'Motion Graphics', 'DaVinci Resolve',
+    'Premiere Pro', 'After Effects', 'CapCut', 'Color Grading', 'YouTube Video Editing'
   ];
 
   const candidateSkillNames = extractProfileSkills(profile);
@@ -300,8 +330,9 @@ export function parseRawJobToOpportunity(rawText: string, profile: FreelancerPro
     budgetMax = budgetMin;
   }
 
-  return {
-    id: `opp-custom-${Date.now()}`,
+  const customId = `opp-custom-${Date.now()}`;
+  const initialOpp: Partial<Opportunity> = {
+    id: customId,
     title,
     clientName: 'Direct Client Requirement',
     clientCountry: 'Remote',
@@ -314,19 +345,18 @@ export function parseRawJobToOpportunity(rawText: string, profile: FreelancerPro
     budgetMin,
     budgetMax,
     budgetCurrency: 'USD',
-    skillsRequired: skillsRequired.length > 0 ? skillsRequired : ['AI & Cloud Engineering'],
+    skillsRequired: skillsRequired.length > 0 ? skillsRequired : [profile.targetRole || 'Freelance Project'],
     experienceLevel: 'Intermediate',
     postedAt: new Date().toISOString(),
     estimatedDuration: profile.projectDuration || '1 - 2 weeks',
-    riskAssessment: {
-      score: 10,
-      level: 'VERIFIED_SAFE',
-      summary: 'Manually pasted custom job requirement evaluated against your Supabase profile.',
-      redFlags: [],
-      safetySignals: ['Direct client job description', 'Clear project specifications'],
-      safeToApply: true,
-      analyzedAt: new Date().toISOString(),
-    },
+  };
+
+  // Run dynamic Risk Agent screening on pasted job requirement
+  const riskAssessment = evaluateOpportunityRisk(initialOpp);
+
+  return {
+    ...initialOpp as Required<Omit<Opportunity, 'riskAssessment' | 'matchReasoning' | 'status'>>,
+    riskAssessment,
     status: 'active',
   };
 }
