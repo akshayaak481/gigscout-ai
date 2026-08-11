@@ -20,7 +20,7 @@ import { FreelancerProfile } from '@/types/profile';
 
 interface ScoutViewProps {
   activeProfile: FreelancerProfile;
-  onLaunchMission: (query: string) => void;
+  onLaunchMission: (query: string, profileId: string) => void;
   isSearching?: boolean;
 }
 
@@ -146,7 +146,7 @@ export function ScoutView({ activeProfile, onLaunchMission, isSearching = false 
           <button
             type="button"
             disabled={isSearching}
-            onClick={() => onLaunchMission(query)}
+            onClick={() => onLaunchMission(query, activeProfile.id)}
             className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-600/30 transition-all cursor-pointer disabled:opacity-50"
           >
             {isSearching ? (

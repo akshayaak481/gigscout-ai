@@ -298,3 +298,79 @@ export async function saveActiveProfile(profile: FreelancerProfile): Promise<{
     error: null,
   };
 }
+
+/**
+ * Delete a freelancer profile and all its associated data (saved opportunities, embeddings, storage cache).
+ */
+export async function deleteProfile(profileId: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string | null;
+}> {
+  if (!profileId || !profileId.trim()) {
+    return { success: false, error: 'profileId is required for deletion.' };
+  }
+
+  const targetId = profileId.trim();
+
+  // 1. Clean localStorage caches
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(`${LOCAL_STORAGE_KEY_PREFIX}${targetId}`);
+      localStorage.removeItem(`gigscout_saved_opportunities_${targetId}`);
+      if (getActiveProfileId() === targetId) {
+        localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
+      }
+    } catch (e) {
+      console.warn('LocalStorage cleanup notice:', e);
+    }
+  }
+
+  // 2. Call server API
+  try {
+    const res = await fetch(`/api/profile?profileId=${encodeURIComponent(targetId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (res.ok && json.success) {
+      return {
+        success: true,
+        message: json.message || `Profile "${targetId}" deleted successfully.`,
+      };
+    }
+
+    if (json.error) {
+      return { success: false, error: json.error };
+    }
+  } catch (apiErr: any) {
+    console.warn('API deleteProfile notice:', apiErr.message);
+  }
+
+  // 3. Direct client fallback if API failed or offline
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('saved_opportunities').delete().eq('profile_id', targetId);
+      await supabase.from('portfolio_embeddings').delete().eq('profile_id', targetId);
+      const { error } = await supabase.from('profiles').delete().eq('id', targetId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return {
+        success: true,
+        message: `Profile "${targetId}" deleted successfully.`,
+      };
+    } catch (dbErr: any) {
+      return { success: false, error: dbErr.message };
+    }
+  }
+
+  return {
+    success: true,
+    message: `Profile "${targetId}" removed locally.`,
+  };
+}

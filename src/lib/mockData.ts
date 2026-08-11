@@ -491,136 +491,160 @@ export const SAMPLE_TELEMETRY_LOGS: AgentLogEntry[] = [
 ];
 
 export function getInitialOpportunitiesForProfile(profile: FreelancerProfile): Opportunity[] {
-  const role = (profile.targetRole || profile.title || '').toLowerCase();
-  const skillNames = (profile.skills || []).map(s => (typeof s === 'string' ? s : s.name).toLowerCase());
-  const isDataAnalyst = role.includes('data analyst') || role.includes('business intelligence') || role.includes('bi') || skillNames.includes('power bi') || skillNames.includes('tableau');
+  const role = (profile.targetRole || profile.title || 'Freelance Specialist').trim();
+  const roleLower = role.toLowerCase();
+  const rawSkills = (profile.skills || []).map(s => (typeof s === 'string' ? s : s.name)).filter(Boolean);
+  const skillsList = rawSkills.length > 0 ? rawSkills : [role];
+  const rateMin = profile.hourlyRateMin || 50;
+  const rateMax = profile.hourlyRateMax || 90;
+  const currency = profile.currency || 'USD';
+  const locationPref = profile.locationPreference || 'Remote';
+  const duration = profile.projectDuration || '1 - 2 weeks';
 
-  if (isDataAnalyst) {
-    return [
-      {
-        id: `opp-bi-${profile.id}-1`,
-        title: 'Enterprise Power BI & SQL Business Intelligence Consultant',
-        clientName: 'Apex Capital Analytics',
-        clientCountry: 'United States / Remote',
-        clientRating: 4.97,
-        clientSpent: '$92k+ total spend',
-        platform: 'upwork',
-        platformUrl: 'https://upwork.com/jobs/power-bi-sql-consultant',
-        description: 'Seeking an expert Data Analyst & BI Consultant to design executive KPI dashboards in Power BI and optimize SQL data warehouse queries. You will connect PostgreSQL databases, build automated DAX measures, and present performance insights to leadership.',
-        budgetType: 'hourly',
-        budgetMin: 50,
-        budgetMax: 85,
-        budgetCurrency: 'USD',
-        skillsRequired: ['Power BI', 'SQL', 'DAX', 'Tableau', 'Excel'],
-        experienceLevel: 'Intermediate',
-        postedAt: '2026-08-10T16:00:00Z',
-        estimatedDuration: '2 - 4 weeks',
-        status: 'active',
-        riskAssessment: {
-          score: 5,
-          level: 'VERIFIED_SAFE',
-          summary: 'Verified client with 4.97 rating and $92k+ escrow payments.',
-          redFlags: [],
-          safetySignals: ['Verified payment method', 'Clear hourly scope ($50 - $85/hr)', 'No suspicious terms'],
-          safeToApply: true,
-          analyzedAt: '2026-08-10T16:05:00Z',
-        },
-        matchReasoning: {
-          overallScore: 95,
-          skillsMatchScore: 96,
-          rateAlignmentScore: 95,
-          experienceMatchScore: 94,
-          whyGoodMatch: [
-            'Direct match: Your Power BI, SQL, and data analytics competencies align with project scope.',
-            'Target rate meets your commercial preference.',
-            'Remote timeline matches your availability.',
-          ],
-          potentialGaps: [],
-          recommendedPitchAngle: 'Highlight your expertise designing executive Power BI dashboards, SQL query optimization, and actionable business metrics.',
-          relevantPortfolioIds: [],
-        },
-      },
-      {
-        id: `opp-bi-${profile.id}-2`,
-        title: 'Lead Business Analytics & Tableau Dashboard Specialist',
-        clientName: 'Horizon Health Systems',
-        clientCountry: 'Canada / Remote',
-        clientRating: 4.92,
-        clientSpent: '$45k+ total spend',
-        platform: 'weworkremotely',
-        platformUrl: 'https://weworkremotely.com/jobs/tableau-data-analyst',
-        description: 'Looking for a Senior Data Analyst to build interactive Tableau and SQL reporting suites for healthcare operations. Must have strong experience transforming raw relational data into clean visual KPI reports.',
-        budgetType: 'fixed',
-        budgetMin: 3200,
-        budgetMax: 5000,
-        budgetCurrency: 'USD',
-        skillsRequired: ['Tableau', 'SQL', 'Python', 'Power BI'],
-        experienceLevel: 'Intermediate',
-        postedAt: '2026-08-10T14:30:00Z',
-        estimatedDuration: '1 - 2 weeks',
-        status: 'active',
-        riskAssessment: {
-          score: 8,
-          level: 'VERIFIED_SAFE',
-          summary: 'Verified employer on WeWorkRemotely with established budget.',
-          redFlags: [],
-          safetySignals: ['Established corporate entity', 'Transparent deliverables'],
-          safeToApply: true,
-          analyzedAt: '2026-08-10T14:35:00Z',
-        },
-        matchReasoning: {
-          overallScore: 91,
-          skillsMatchScore: 92,
-          rateAlignmentScore: 90,
-          experienceMatchScore: 91,
-          whyGoodMatch: ['Strong alignment on Tableau and SQL data analytics requirements.'],
-          potentialGaps: [],
-          recommendedPitchAngle: 'Showcase visual Tableau reporting suites and SQL extraction pipelines.',
-          relevantPortfolioIds: [],
-        },
-      },
-      {
-        id: `opp-bi-${profile.id}-3`,
-        title: 'SQL Data Modeling & Automated ETL Reporting Pipeline',
-        clientName: 'MetricFlow Digital',
-        clientCountry: 'United Kingdom / Remote',
-        clientRating: 4.88,
-        clientSpent: '$60k+ total spend',
-        platform: 'reddit',
-        platformUrl: 'https://reddit.com/r/forhire/sql-etl-data-analyst',
-        description: 'Hiring a freelance Data Analyst for a 2-week engagement to clean, normalize, and build automated SQL queries and Excel/Power BI summaries for customer retention analytics.',
-        budgetType: 'hourly',
-        budgetMin: 45,
-        budgetMax: 75,
-        budgetCurrency: 'USD',
-        skillsRequired: ['SQL', 'Python', 'Excel', 'Power BI'],
-        experienceLevel: 'Intermediate',
-        postedAt: '2026-08-10T12:00:00Z',
-        estimatedDuration: '1 - 2 weeks',
-        status: 'active',
-        riskAssessment: {
-          score: 12,
-          level: 'LOW_RISK',
-          summary: 'Reddit job posting with verified upfront milestone payment structure.',
-          redFlags: [],
-          safetySignals: ['Agreed to upfront milestone escrow'],
-          safeToApply: true,
-          analyzedAt: '2026-08-10T12:05:00Z',
-        },
-        matchReasoning: {
-          overallScore: 89,
-          skillsMatchScore: 90,
-          rateAlignmentScore: 88,
-          experienceMatchScore: 89,
-          whyGoodMatch: ['Direct fit for SQL normalization, Python scripting, and reporting.'],
-          potentialGaps: [],
-          recommendedPitchAngle: 'Emphasize fast turnaround on SQL modeling and clear automated summary reports.',
-          relevantPortfolioIds: [],
-        },
-      },
-    ];
+  // If profile is explicitly Akshaya or AI & Data Engineering, return Akshaya's curated benchmark set
+  const isAiEngineer = roleLower.includes('ai') || roleLower.includes('data engineering') || roleLower.includes('machine learning') || roleLower.includes('rag') || roleLower.includes('langgraph');
+  if (isAiEngineer && (profile.id.includes('akshaya') || (profile.name && profile.name.toLowerCase().includes('akshaya')))) {
+    return INITIAL_OPPORTUNITIES;
   }
 
-  return INITIAL_OPPORTUNITIES;
+  // Dynamic candidate-aligned opportunities for ANY freelancer profile (e.g. Riya Berry, Web Developer, Designer, etc.)
+  const primarySkill = skillsList[0] || role;
+  const secondarySkill = skillsList[1] || 'Project Delivery';
+  const tertiarySkill = skillsList[2] || 'Client Collaboration';
+
+  return [
+    {
+      id: `opp-${profile.id}-1`,
+      title: `${role} - High-Impact Client Engagement`,
+      clientName: 'Vanguard Creative Media',
+      clientCountry: `United States / ${locationPref}`,
+      clientRating: 4.98,
+      clientSpent: currency === 'INR' ? '₹850k+ total spend' : '$85k+ total spend',
+      platform: 'upwork',
+      platformUrl: `https://upwork.com/jobs/freelance-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      description: `Seeking an experienced ${role} for a high-priority project. You will work directly on deliverables requiring ${skillsList.slice(0, 3).join(', ')}, ensure fast turnaround, and collaborate closely with our production team.`,
+      budgetType: 'hourly',
+      budgetMin: rateMin,
+      budgetMax: rateMax,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 5),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+      estimatedDuration: duration,
+      status: 'active',
+      riskAssessment: {
+        score: 5,
+        level: 'VERIFIED_SAFE',
+        summary: `Verified client with 4.98 rating and verified escrow payment record for ${role} engagements.`,
+        redFlags: [],
+        safetySignals: [
+          `Clear hourly compensation terms (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr)`,
+          'Client has established payment verification on platform',
+          'Well-defined scope and deliverables matching candidate skillset',
+          'Zero suspicious flags detected by Risk Sentinel',
+        ],
+        safeToApply: true,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 96,
+        skillsMatchScore: 98,
+        rateAlignmentScore: 95,
+        experienceMatchScore: 94,
+        whyGoodMatch: [
+          `Direct match: Your core skills (${skillsList.slice(0, 3).join(', ')}) precisely match project requirements.`,
+          `Client hourly budget (${currency === 'INR' ? '₹' : '$'}${rateMin} - ${currency === 'INR' ? '₹' : '$'}${rateMax}/hr) aligns with your target rate.`,
+          `Project duration (${duration}) and ${locationPref} setup match your current availability.`,
+        ],
+        potentialGaps: [],
+        recommendedPitchAngle: `Highlight your hands-on expertise in ${skillsList.slice(0, 2).join(' and ')} and quick milestone delivery.`,
+        relevantPortfolioIds: [],
+      },
+    },
+    {
+      id: `opp-${profile.id}-2`,
+      title: `${primarySkill} Specialist - Fast-Growing Brand Campaign`,
+      clientName: 'Horizon Media Partners',
+      clientCountry: `Canada / ${locationPref}`,
+      clientRating: 4.93,
+      clientSpent: currency === 'INR' ? '₹450k+ total spend' : '$48k+ total spend',
+      platform: 'weworkremotely',
+      platformUrl: `https://weworkremotely.com/jobs/${primarySkill.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-specialist`,
+      description: `Looking for a talented freelance ${role} to handle key deliverables for our upcoming multi-channel brand launch. Must have solid experience with ${primarySkill}, ${secondarySkill}, and ${tertiarySkill}.`,
+      budgetType: 'fixed',
+      budgetMin: rateMin * 30,
+      budgetMax: rateMax * 45,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 4),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+      estimatedDuration: duration,
+      status: 'active',
+      riskAssessment: {
+        score: 7,
+        level: 'VERIFIED_SAFE',
+        summary: 'Established employer on WeWorkRemotely with milestone-based escrow.',
+        redFlags: [],
+        safetySignals: ['Verified corporate platform presence', 'Transparent milestone deliverables', 'Prompt communication channel'],
+        safeToApply: true,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 92,
+        skillsMatchScore: 94,
+        rateAlignmentScore: 91,
+        experienceMatchScore: 90,
+        whyGoodMatch: [
+          `Strong overlap with ${primarySkill} and ${secondarySkill}.`,
+          'Milestone compensation structured around proven deliverables.',
+        ],
+        potentialGaps: [],
+        recommendedPitchAngle: `Showcase relevant case studies and past client work involving ${primarySkill}.`,
+        relevantPortfolioIds: [],
+      },
+    },
+    {
+      id: `opp-${profile.id}-3`,
+      title: `${role.split('/')[0].trim()} - High-Priority Deliverable Sprint`,
+      clientName: 'KiteFlow Studio',
+      clientCountry: `United Kingdom / ${locationPref}`,
+      clientRating: 4.89,
+      clientSpent: currency === 'INR' ? '₹600k+ total spend' : '$62k+ total spend',
+      platform: 'reddit',
+      platformUrl: `https://reddit.com/r/forhire/hiring-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      description: `Hiring a reliable freelance ${role} for a ${duration} sprint. Focus on ${skillsList.slice(0, 3).join(', ')} with verified upfront platform escrow.`,
+      budgetType: 'hourly',
+      budgetMin: Math.max(15, rateMin - 5),
+      budgetMax: rateMax,
+      budgetCurrency: currency,
+      skillsRequired: skillsList.slice(0, 4),
+      experienceLevel: 'Intermediate',
+      postedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+      estimatedDuration: duration,
+      status: 'active',
+      riskAssessment: {
+        score: 10,
+        level: 'LOW_RISK',
+        summary: 'Reddit r/forhire client with verified upfront milestone escrow.',
+        redFlags: [],
+        safetySignals: ['Verified escrow milestone agreement', 'Specific scope and timeline'],
+        safeToApply: true,
+        analyzedAt: new Date().toISOString(),
+      },
+      matchReasoning: {
+        overallScore: 89,
+        skillsMatchScore: 91,
+        rateAlignmentScore: 88,
+        experienceMatchScore: 89,
+        whyGoodMatch: [
+          `Direct alignment with ${skillsList.slice(0, 2).join(' & ')} specifications.`,
+          'Flexible timeline with verified upfront escrow protection.',
+        ],
+        potentialGaps: [],
+        recommendedPitchAngle: `Emphasize your proven delivery track record in ${role}.`,
+        relevantPortfolioIds: [],
+      },
+    },
+  ];
 }
 

@@ -24,12 +24,34 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const profileIdFilter = body.profileId || null;
+    const profileId =
+      typeof body.profileId === 'string' && body.profileId.trim()
+        ? body.profileId.trim()
+        : null;
+    const userQuery =
+      typeof body.query === 'string'
+        ? body.query.trim()
+        : '';
 
     // ---------------------------------------------------------------------------
     // Step 1: Read the saved freelancer profile from Supabase (Strict - No Mock Fallback)
     // ---------------------------------------------------------------------------
     addLog('profile', 'Reading Saved Profile', 'Querying Supabase database for active freelancer profile...');
+
+    if (!profileId) {
+      addLog('profile', 'Missing Profile ID', 'profileId is required for opportunity discovery.');
+      return NextResponse.json(
+        {
+          success: false,
+          generatedQueries: [],
+          totalDiscovered: 0,
+          opportunities: [],
+          logs,
+          error: 'profileId is required for opportunity discovery.',
+        },
+        { status: 400 }
+      );
+    }
 
     if (!isServerSupabaseConfigured) {
       addLog('profile', 'Supabase Unavailable', 'Supabase server configuration is missing.');
@@ -46,16 +68,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let profileQuery = supabaseServer
+    const { data: profileRows, error: profileErr } = await supabaseServer
       .from('profiles')
       .select('*')
-      .order('updated_at', { ascending: false });
-
-    if (profileIdFilter) {
-      profileQuery = profileQuery.eq('id', profileIdFilter);
-    }
-
-    const { data: profileRows, error: profileErr } = await profileQuery.limit(1);
+      .eq('id', profileId)
+      .limit(1);
 
     if (profileErr) {
       addLog('profile', 'Database Error', `Failed to query Supabase: ${profileErr.message}`);
@@ -73,7 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!profileRows || profileRows.length === 0) {
-      addLog('profile', 'Profile Not Found', 'No saved profile exists in the Supabase database.');
+      addLog('profile', 'Profile Not Found', `Profile with ID "${profileId}" does not exist in Supabase.`);
       return NextResponse.json(
         {
           success: false,
@@ -81,7 +98,7 @@ export async function POST(req: NextRequest) {
           totalDiscovered: 0,
           opportunities: [],
           logs,
-          error: 'No saved freelancer profile found in Supabase. Please save your profile in My Profile first.',
+          error: `No saved freelancer profile found in Supabase for profile ID "${profileId}". Please save your profile in My Profile first.`,
         },
         { status: 404 }
       );
@@ -118,10 +135,12 @@ export async function POST(req: NextRequest) {
       ? `₹${activeProfile.hourlyRateMin.toLocaleString()}+ / project`
       : `$${activeProfile.hourlyRateMin}+ / hr`;
 
+    console.log(`[Discover API] Discovering opportunities for profile: ${activeProfile.name} (ID: ${activeProfile.id}, Role: ${activeProfile.targetRole})`);
+
     addLog(
       'profile',
       'Profile Loaded Successfully',
-      `Loaded real profile "${activeProfile.name}" (${activeProfile.targetRole}) from Supabase.`
+      `Loaded profile "${activeProfile.name}" (${activeProfile.targetRole}) [ID: ${activeProfile.id}] from Supabase.`
     );
 
     // ---------------------------------------------------------------------------
@@ -150,19 +169,26 @@ export async function POST(req: NextRequest) {
 You are an AI Freelance Search Specialist.
 Synthesize 3 distinct, highly targeted web search queries to find active freelance job postings and gig opportunities online for this profile:
 
+Freelancer Name: ${activeProfile.name}
 Target Role: ${activeProfile.targetRole}
 Key Skills: ${skillNames.join(', ') || activeProfile.targetRole}
 Budget Expectation: ${budgetStr}
 Location Preference: ${activeProfile.locationPreference}
 Project Duration: ${activeProfile.projectDuration}
+${userQuery ? `User Specific Focus / Search Request: "${userQuery}"` : ''}
 
-Generate queries tailored for platform listings (Upwork, WeWorkRemotely, Reddit r/forhire, Freelancer, RemoteOK, or general freelance boards).
+INSTRUCTIONS:
+1. Every query MUST be specifically tailored to the target role (${activeProfile.targetRole}) and skills (${skillNames.slice(0, 5).join(', ')}).
+${userQuery ? `2. Incorporate the user's specific request ("${userQuery}") into the queries while maintaining the freelancer's role context.` : '2. Focus on finding active freelance client postings for this exact specialty.'}
+3. Generate queries tailored for platform listings (Upwork, WeWorkRemotely, Reddit r/forhire, Freelancer, RemoteOK, or general freelance boards).
+4. Do NOT include generic or unrelated keywords.
+
 Respond ONLY with a valid JSON object containing a "queries" array of 3 strings. Example format:
 {
   "queries": [
-    "hiring freelance video editor premiere pro remote",
-    "upwork freelance short form reels video editor",
-    "reddit forhire hiring video editor motion designer"
+    "hiring freelance ${activeProfile.targetRole.toLowerCase().replace(/[^a-z0-9 ]/g, '')} remote",
+    "upwork freelance ${skillNames[0] || activeProfile.targetRole} ${skillNames[1] || ''}",
+    "reddit forhire hiring ${activeProfile.targetRole.toLowerCase().replace(/[^a-z0-9 ]/g, '')}"
   ]
 }
 `;
@@ -190,10 +216,12 @@ Respond ONLY with a valid JSON object containing a "queries" array of 3 strings.
 
     // Fallback search queries if OpenAI response format was irregular
     if (generatedQueries.length < 2) {
+      const primarySkill = skillNames[0] || activeProfile.targetRole;
+      const secondarySkill = skillNames[1] || '';
       generatedQueries = [
-        `hiring freelance ${activeProfile.targetRole} ${skillNames.slice(0, 2).join(' ')} ${activeProfile.locationPreference}`.trim(),
+        `hiring freelance ${activeProfile.targetRole} ${primarySkill} ${activeProfile.locationPreference}`.trim(),
         `upwork reddit weworkremotely freelance ${activeProfile.targetRole} project`,
-        `looking for freelance ${skillNames[0] || activeProfile.targetRole} ${activeProfile.locationPreference}`,
+        `looking for freelance ${primarySkill} ${secondarySkill} ${activeProfile.locationPreference}`.trim(),
       ];
     }
 
@@ -293,10 +321,10 @@ SEARCH RESULTS:
 ${JSON.stringify(rawSearchResults.slice(0, 10), null, 2)}
 
 TARGET FREELANCER ROLE CONTEXT:
-${activeProfile.targetRole} (Skills: ${skillNames.join(', ')})
+${activeProfile.name} - ${activeProfile.targetRole} (Skills: ${skillNames.join(', ')})
 
 STRICT ANTI-HALLUCINATION EXTRACTION RULES:
-1. Extract real freelance postings found in the search results.
+1. Extract real freelance postings found in the search results matching or relevant to the freelancer's target domain (${activeProfile.targetRole}).
 2. DO NOT HALLUCINATE OR INVENT MISSING INFORMATION.
 3. If budget, client, location, project duration, or posted date is not explicitly mentioned in the source snippet, strictly mark it as "Not specified".
 4. Determine the source platform (e.g. "Upwork", "WeWorkRemotely", "Reddit r/forhire", "Freelancer", "RemoteOK", or "Web Board") based on the URL domain or text.

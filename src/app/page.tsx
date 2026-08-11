@@ -27,6 +27,7 @@ import {
 import { 
   fetchActiveProfile, 
   saveActiveProfile, 
+  deleteProfile,
   fetchAllProfiles, 
   setActiveProfileId 
 } from '@/lib/services/profileService';
@@ -201,7 +202,25 @@ export default function App() {
     return result;
   };
 
-  const handleLaunchMission = async (query: string) => {
+  const handleDeleteProfile = async (profileId: string) => {
+    const result = await deleteProfile(profileId);
+    if (result.success) {
+      const remainingProfiles = profiles.filter((p) => p.id !== profileId);
+      setProfiles(remainingProfiles);
+
+      if (activeProfile.id === profileId) {
+        if (remainingProfiles.length > 0) {
+          const nextProfile = remainingProfiles[0];
+          await handleSelectProfile(nextProfile);
+        } else {
+          handleCreateNewProfile();
+        }
+      }
+    }
+    return result;
+  };
+
+  const handleLaunchMission = async (query: string, profileId?: string) => {
     setIsSearchingOpportunities(true);
     setCurrentTab('mission_control');
 
@@ -212,13 +231,16 @@ export default function App() {
       colors: ['#8b5cf6', '#06b6d4', '#10b981'],
     });
 
+    const targetProfileId = (profileId && profileId.trim()) ? profileId.trim() : activeProfile.id;
+    const targetProfile = profiles.find((p) => p.id === targetProfileId) || (activeProfile.id === targetProfileId ? activeProfile : { ...activeProfile, id: targetProfileId });
+
     try {
       // Trigger live autonomous discovery using the active candidate's profileId
       const res = await fetch('/api/opportunities/discover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          profileId: activeProfile.id,
+          profileId: targetProfileId,
           query,
         }),
       });
@@ -229,7 +251,7 @@ export default function App() {
         const discovered = json.opportunities.map((item: any, idx: number) => {
           const skillsRequired = Array.isArray(item.requiredSkills) 
             ? item.requiredSkills 
-            : (Array.isArray(item.skillsRequired) ? item.skillsRequired : activeProfile.skills.map(s => s.name).slice(0, 4));
+            : (Array.isArray(item.skillsRequired) ? item.skillsRequired : (targetProfile.skills || []).map((s: any) => (typeof s === 'string' ? s : s.name)).slice(0, 4));
 
           const rawOpp: Opportunity = {
             id: item.id || `opp-live-${Date.now()}-${idx}`,
@@ -242,13 +264,13 @@ export default function App() {
             platformUrl: item.url || '#',
             description: item.description || '',
             budgetType: item.budget && item.budget.includes('/hr') ? 'hourly' : 'fixed',
-            budgetMin: activeProfile.hourlyRateMin,
-            budgetMax: activeProfile.hourlyRateMax,
-            budgetCurrency: activeProfile.currency,
+            budgetMin: targetProfile.hourlyRateMin,
+            budgetMax: targetProfile.hourlyRateMax,
+            budgetCurrency: targetProfile.currency,
             skillsRequired,
             experienceLevel: 'Intermediate',
             postedAt: new Date().toISOString(),
-            estimatedDuration: item.projectDuration || '1 - 2 weeks',
+            estimatedDuration: item.projectDuration || targetProfile.projectDuration || '1 - 2 weeks',
             status: 'active',
             riskAssessment: {
               score: 5,
@@ -261,7 +283,7 @@ export default function App() {
             },
           };
 
-          const matchRes = calculateDynamicMatch(rawOpp, activeProfile, ragChunks);
+          const matchRes = calculateDynamicMatch(rawOpp, targetProfile, ragChunks);
           rawOpp.matchReasoning = {
             overallScore: matchRes.overallScore,
             skillsMatchScore: matchRes.skillsMatchScore,
@@ -398,6 +420,7 @@ export default function App() {
               onSelectProfile={handleSelectProfile}
               onCreateNewProfile={handleCreateNewProfile}
               onSaveProfile={handleSaveProfile}
+              onDeleteProfile={handleDeleteProfile}
               isLoading={isLoadingProfile}
             />
           )}

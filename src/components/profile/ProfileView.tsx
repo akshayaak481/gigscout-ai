@@ -27,6 +27,7 @@ interface ProfileViewProps {
   onSelectProfile?: (profile: FreelancerProfile) => void;
   onCreateNewProfile?: () => void;
   onSaveProfile: (updated: FreelancerProfile) => Promise<{ success: boolean; data: FreelancerProfile; error?: string | null; source: 'supabase' | 'local' }>;
+  onDeleteProfile?: (profileId: string) => Promise<{ success: boolean; message?: string; error?: string | null }>;
   isLoading?: boolean;
 }
 
@@ -36,10 +37,13 @@ export function ProfileView({
   onSelectProfile,
   onCreateNewProfile,
   onSaveProfile,
+  onDeleteProfile,
   isLoading = false,
 }: ProfileViewProps) {
   const [profile, setProfile] = useState<FreelancerProfile>(activeProfile);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [newSkill, setNewSkill] = useState<string>('');
 
@@ -89,6 +93,41 @@ export function ProfileView({
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!onDeleteProfile) return;
+    setIsDeleting(true);
+    setStatusMessage(null);
+
+    try {
+      const result = await onDeleteProfile(activeProfile.id);
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+
+      if (result.success) {
+        setStatusMessage({
+          type: 'success',
+          text: result.message || `Profile "${activeProfile.name}" was successfully deleted.`,
+        });
+
+        setTimeout(() => {
+          setStatusMessage(null);
+        }, 5000);
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: result.error || 'Failed to delete profile.',
+        });
+      }
+    } catch (err: any) {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setStatusMessage({
+        type: 'error',
+        text: err.message || 'An error occurred during deletion.',
+      });
+    }
+  };
+
   const handleAddSkill = () => {
     if (!newSkill.trim()) return;
     const added: SkillProficiency = {
@@ -131,42 +170,57 @@ export function ProfileView({
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-4xl mx-auto py-4">
-      
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-extrabold text-white tracking-tight">
-              Freelancer Profile &amp; Preferences
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30">
-              Supabase Connected
-            </span>
+    <>
+      <form onSubmit={handleSave} className="space-y-6 max-w-4xl mx-auto py-4">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                Freelancer Profile &amp; Preferences
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                Supabase Connected
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Manage your persistent freelance profile. These parameters guide the autonomous agent scout, RAG vector matching, and pitch generation.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage your persistent freelance profile. These parameters guide the autonomous agent scout, RAG vector matching, and pitch generation.
-          </p>
-        </div>
 
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500 hover:from-purple-500 hover:to-indigo-500 shadow-md shadow-purple-600/30 transition-all shrink-0 cursor-pointer disabled:opacity-50"
-        >
-          {isSaving ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin text-white" />
-              <span>Saving to Supabase...</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 text-white" />
-              <span>Save Profile</span>
-            </>
-          )}
-        </button>
-      </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {onDeleteProfile && (
+              <button
+                type="button"
+                disabled={isSaving || isDeleting}
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 shadow-md shadow-rose-950/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Profile</span>
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSaving || isDeleting}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500 hover:from-purple-500 hover:to-indigo-500 shadow-md shadow-purple-600/30 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>Saving to Supabase...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 text-white" />
+                  <span>Save Profile</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
       {/* Active Identity Switcher Bar */}
       {allProfiles && allProfiles.length > 0 && (
@@ -448,5 +502,65 @@ export function ProfileView({
       </div>
 
     </form>
+
+    {/* Delete Profile Confirmation Modal */}
+    {isDeleteModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="bg-[#0b0f24] border border-rose-900/60 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl shadow-rose-950/40">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                Delete Profile: {activeProfile.name || 'Freelancer'}
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Are you sure you want to delete <strong className="text-rose-300 font-semibold">{activeProfile.name}</strong>? This will remove the profile and its associated saved opportunities and knowledge-base data. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-900/40 text-[11px] font-mono text-rose-300">
+            ⚠️ Data to be permanently deleted:
+            <ul className="list-disc list-inside mt-1 space-y-0.5 text-rose-400/90 text-[10.5px]">
+              <li>Profile metadata &amp; preferences ({activeProfile.targetRole})</li>
+              <li>Saved opportunities associated with this profile</li>
+              <li>Resume &amp; portfolio knowledge-base vector chunks</li>
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Deleting Profile...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Yes, Delete Profile</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
